@@ -10,4 +10,4 @@ LazyData: true
 Depends: 
     R (>= 3.1)
 Imports:
-    kevinmcc21/merf
+    https://github.com/kevinmcc21/merf.git
