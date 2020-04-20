@@ -1,0 +1,8 @@
+Run_Name:Scott_20200228
+Processing_Path:/home/kevin/projects/scott/processing/
+Bowtie_Index:/data/internal/common/genomes/hg38/bowtie2/hg38
+Primer_Length:8
+Min_LTR_Length:50
+Max_LTR_Length:70
+LTR_Database:/home/kevin/dev/ltrparser/data/lanl.ltr.fasta
+
