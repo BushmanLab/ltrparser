@@ -20,5 +20,5 @@ r_packages:
 # - merf
 
 r_github_packages:
- - kevinmcc21/merf
+# - kevinmcc21/merf
  - sherrillmix/dnar
