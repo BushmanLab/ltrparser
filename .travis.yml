@@ -8,6 +8,14 @@ bioc-packages:
 
 r_packages:
  - testthat
+ - stringr
+ - dplyr
+ - tidyr
+ - argparse
+ - ShortRead
+ - dnar
+ - stringdist
+ - merf
 
 r_github_packages:
  - kevinmcc21/merf
