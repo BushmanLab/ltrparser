@@ -1,1 +1,13 @@
 language: r
+
+r:
+ - bioc-release
+ 
+bioc-packages:
+ - ShortRead
+
+r_packages:
+ - testthat
+
+r_github_packages:
+ - kevinmcc21/merf
