@@ -17,6 +17,7 @@ Imports:
     tidyr
     argparse
     ShortRead
+    gmapR
     dnar
     stringdist
     merf

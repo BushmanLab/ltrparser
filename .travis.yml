@@ -5,6 +5,7 @@ r:
  
 bioc-packages:
  - ShortRead
+ - gmapR
 
 r_packages:
  - testthat
