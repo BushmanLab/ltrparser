@@ -16,8 +16,8 @@ r_packages:
 # - tidyr
 # - argparse
 # - stringdist
- - dnar
- - merf
+# - dnar
+# - merf
 
 r_github_packages:
  - kevinmcc21/merf
