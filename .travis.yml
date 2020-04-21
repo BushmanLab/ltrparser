@@ -20,3 +20,4 @@ r_packages:
 
 r_github_packages:
  - kevinmcc21/merf
+ - sherrillmix/dnar
