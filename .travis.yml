@@ -7,15 +7,15 @@ r:
  
 bioc-packages:
  - gmapR
-# - ShortRead
+ - ShortRead
 
 r_packages:
-# - testthat
-# - stringr
-# - dplyr
-# - tidyr
-# - argparse
-# - stringdist
+ - testthat
+ - stringr
+ - dplyr
+ - tidyr
+ - argparse
+ - stringdist
 # - dnar
 # - merf
 
