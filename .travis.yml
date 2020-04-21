@@ -1,4 +1,5 @@
 language: r
+warnings_are_errors: false
 
 r:
  - bioc-release
@@ -13,7 +14,6 @@ r_packages:
  - dplyr
  - tidyr
  - argparse
- - ShortRead
  - dnar
  - stringdist
  - merf
