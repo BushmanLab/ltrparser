@@ -10,12 +10,12 @@ bioc-packages:
 # - ShortRead
 
 r_packages:
- - testthat
- - stringr
- - dplyr
- - tidyr
- - argparse
- - stringdist
+# - testthat
+# - stringr
+# - dplyr
+# - tidyr
+# - argparse
+# - stringdist
 # - dnar
 # - merf
 
