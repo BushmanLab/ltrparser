@@ -9,9 +9,3 @@ Encoding: UTF-8
 LazyData: true
 Depends: 
     R (>= 3.1)
-Imports:
-    dnar
-    merf
-Remotes:
-    sherrillmix/dnar
-    kevinmcc21/merf
