@@ -2,20 +2,21 @@ language: r
 warnings_are_errors: false
 
 r:
- - bioc-release
+ - release
+# - bioc-release
  
-bioc-packages:
- - ShortRead
- - gmapR
+#bioc-packages:
+# - ShortRead
+# - gmapR
 
 r_packages:
- - testthat
- - stringr
- - dplyr
- - tidyr
- - argparse
+# - testthat
+# - stringr
+# - dplyr
+# - tidyr
+# - argparse
+# - stringdist
  - dnar
- - stringdist
  - merf
 
 r_github_packages:
