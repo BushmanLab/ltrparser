@@ -6,8 +6,8 @@ r:
 # - bioc-release
  
 bioc-packages:
- - gmapR
- - ShortRead
+# - gmapR
+# - ShortRead
 
 r_packages:
  - testthat
@@ -20,5 +20,5 @@ r_packages:
 # - merf
 
 r_github_packages:
- - kevinmcc21/merf
+# - kevinmcc21/merf
  - sherrillmix/dnar
