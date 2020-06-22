@@ -1,0 +1,1 @@
+wget -O /home/kevin/dev/ltrparser/testdata/testdata.tsv "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRnZfjaZjstJK-bMffVZ0EilQYIx-8PJt4tIz8TsV9VfObLswBlXiYSbEfV0RZfw-igBT0xxu64LRJ/pub?gid=372603800&single=true&output=tsv"

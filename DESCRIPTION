@@ -5,11 +5,12 @@ Version: 0.1.0
 Authors@R: person("Kevin", "McCormick", email = "kevinmcc@pennmedicine.upenn.edu",
                   role = c("aut", "cre"))
 Description: Package to parse, identify, and analyze potential primers and LTR sequences in HIV sequencing data.
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Depends: 
     R (>= 3.1)
 Imports:
-    dnar
+    dnar, stringr, gmapR, ShortRead, testthat, dplyr, tidyr, argparse, stringdist, merf
 Remotes:
-    sherrillmix/dnar
+    sherrillmix/dnar, kevinmcc21/merf

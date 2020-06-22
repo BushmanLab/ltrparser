@@ -1,12 +1,14 @@
-Run_Name:Scott_20200228
+Run_Name:"Gene Therapy Test 2"
 Processing_Path:/home/kevin/dev/ltrparser/testdata/
 Host_Genome_Bowtie_Index:/data/internal/common/genomes/hg38/bowtie2/hg38
+Host_Bowtie_Options:"--local -k 1"
 Viral_Genome_Bowtie_Index:/home/kevin/dev/ltrparser/data/lanl.ltr
 Viral_Bowtie_Options:"--local -k 1"
-Host_Bowtie_Options:"--local -k 1"
 Primer_Length:7
-Min_LTR_Length:10
-Max_LTR_Length:100
+Min_LTR_Length:5
+Max_LTR_Length:10
+LTR_Max_Dist:0
 Terminal_Seq:CA
-LTR_Database:/home/kevin/dev/ltrparser/data/lanl.ltr.fasta
-RMD_Script:/home/kevin/dev/ltrparser/R/ltr-parser.Rmd
+Min_Proportion:0.005
+Map_To_LANL:FALSE
+RMD_Script:/home/kevin/dev/ltrparser/Rmd/ltr-parser.Rmd

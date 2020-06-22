@@ -1,4 +1,5 @@
 source("/home/kevin/dev/ltrparser/R/misc.R")
+source("/home/kevin/dev/ltrparser/R/ltr-parser.R")
 library(testthat)
 
 test_that("soft_clip", {
@@ -38,3 +39,15 @@ test_that("parse_bowtie", {
 test_that("filter_seqs", {
   
 })
+
+test_that("parse_ltrs", {
+  sapply(list.files(path = "testdata/genetherapy2", pattern = "*.fastq.gz", full.names = TRUE),
+         function(inputFastq) {
+           outputCsv = gsub(".fastq.gz",".csv", inputFastq)
+           parse_ltrs(inputFastq = inputFastq,
+                      outputCsv = outputCsv,
+                      configFile = "config/genetherapy.config.tsv")
+  })
+})
+
+

@@ -1,0 +1,440 @@
+---
+title: "LTR Parser Results"
+author: "Kevin McCormick"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  pdf_document:
+    keep_tex: no
+    df_print: kable
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{helvet}
+- \renewcommand{\familydefault}{\sfdefault}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE, message = FALSE, warning = FALSE, results = "asis")
+options(knitr.table.format = "latex") 
+
+inputFastq <- try_element(params, "inputFastq")
+configFile <- try_element(params, "configFile")
+expectedLTR <- try_element(params, "expectedLTR")
+expectedLinker <- try_element(params, "expectedLinker")
+seqsDf <- try_element(params, "seqsDf")
+summaryStats <- try_element(params, "summaryStats")
+candidates <- try_element(params, "candidates")
+candidateSummary <- try_element(params, "candidateSummary")
+segmentedSeqsDf <- try_element(params, "segmentedSeqsDf")
+filteredSeqsSummary <- try_element(params, "filteredSeqsSummary")
+mappingLengthDistribution <- try_element(params, "mappingLengthDistribution")
+description <- try_element(params, "description")
+
+config <- read_config_file(configFile)
+
+
+```
+
+```{r}
+if(0) {
+  cat(names(params))
+  knitr::knit_exit()
+}
+```
+
+# Overview
+
+This report contains the results of attempted primer & LTR identification in the following FASTQ file:
+
+`r inputFastq`
+
+`r description`
+
+# Analysis of common primer-LTR pairs
+
+```{r}
+
+if(!is.null(candidateSummary)) {
+  cat(paste0("  \nA total of ", nrow(candidateSummary) - 1, " potential primer-LTR pairs were identified."))
+  cat("  \nThis table shows how the reads captured by each primer-LTR pair compare to each other and to the raw FASTQ file.")
+  
+  if("LANL" %in% colnames(candidateSummary)) {
+    cat(
+      candidateSummary %>%
+        filter(id > 0) %>%
+        select(id, primer, LTR, expectedLTR, LANL) %>%
+        kableExtra::kable(longtable = TRUE) %>%
+        kableExtra::kable_styling(font_size = 7, bootstrap_options = c("striped", "condensed"),
+                                  position = "left")
+    )
+    table <- candidateSummary %>%
+      select(-primer, -LTR, -expectedLTR, -LANL) %>%
+      gather("Variable", "Value", -"id") %>%
+      spread(id, Value) %>%
+      dplyr::rename(Total="0")
+  } else {
+    cat(
+      candidateSummary %>%
+        filter(id > 0) %>%
+        select(id, primer, LTR, expectedLTR) %>%
+        kableExtra::kable(longtable = TRUE) %>%
+        kableExtra::kable_styling(font_size = 7, bootstrap_options = c("striped", "condensed"),
+                                  position = "left")
+    )
+    table <- candidateSummary %>%
+      select(-primer, -LTR, -expectedLTR) %>%
+      gather("Variable", "Value", -"id") %>%
+      spread(id, Value) %>%
+      dplyr::rename(Total="0")
+  }
+  
+  # Set each cell to show counts and proportions of total reads
+  colsToModify <- colnames(table)[-c(1,2)]
+  for(colName in colsToModify) {
+    table[,colName] <- paste0(table[,colName], " (", round(table[,colName] / table$Total * 100, 1), "%)")
+  }
+  cat(
+    table %>%
+      kableExtra::kable(longtable = TRUE) %>%
+      kableExtra::kable_styling(font_size = 10, bootstrap_options = c("striped", "condensed"),
+                                position = "left")
+  )
+} else {
+  cat("  \nNo common primer-LTR pairs were identified.")
+  summaryStats %>%
+    gather("Variable", "Value") %>%
+    kableExtra::kable(col.names = NULL)
+}
+
+```
+
+\newpage
+
+# Visualization of reads
+
+Reads are sectioned off into sections separated by white (nucleotide color legend is below the plot).
+
+Primer /// LTR /// CA /// (unmatched) /// human-matching /// linker-matching /// (unmatched)
+
+```{r figure.height=8}
+if(!is.null(candidateSummary)) {
+  
+  seqsToDisplay <- segmentedSeqsDf %>%
+      sample_n(min(1000, n()), replace = FALSE) %>%
+      mutate(maxPrimerLength=max(nchar(primer)),
+             maxLTRlength=max(nchar(LTR)),
+             maxRemainderU5Length=max(nchar(remainder_u5)),
+             maxMatchLength=max(nchar(matchSeq)),
+             maxLinkerLength=max(nchar(linkerSeq)),
+             maxRemainderU3Length=max(nchar(remainder_u3))) %>%
+      rowwise() %>%
+      mutate(displaySeq=create_display_seq(primer, LTRsegment, remainder_u5, matchSeq, linkerSeq, remainder_u3,
+                                           maxPrimerLength, maxLTRlength, maxRemainderU5Length,
+                                           maxMatchLength, maxLinkerLength, maxRemainderU3Length)) %>%
+      arrange(matchSeq, linkerSeq, remainder_u3)
+  dnaplotr::plotDNA(seqsToDisplay %>% pull(displaySeq))
+  #dnaplotr::plotDNA(revComp(expectedLinker))
+  dnaplotr::plotDNA(seqsToDisplay %>% arrange(seq) %>% pull(seq))
+
+
+} else {
+  dnaplotr::plotDNA(seqsDf %>%
+                    sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
+                    arrange(seq) %>%
+                    pull(seq))
+}
+
+charRange <- candidateSummary %>%
+  filter(LTR != "") %>%
+  mutate(charLength=nchar(primer) + nchar(LTR)) %>%
+  pull(charLength)
+maxX <- max(charRange) + 5
+minX <- min(charRange) - 5
+
+clipData <- segmentedSeqsDf %>%
+  filter(originalSoftClip <= maxX & originalSoftClip >= minX) %>%
+  filter(LTR %in% candidateSummary$LTR) %>%
+  group_by(LTR, originalSoftClip) %>%
+  summarize(count=n()) %>%
+  group_by(LTR) %>%
+  left_join(candidateSummary %>% select(LTR, id), by="LTR") %>%
+  mutate(prop=count/sum(count))
+clipData$id <- factor(clipData$id, levels = sort(unique(clipData$id), decreasing = TRUE))
+
+if(nrow(clipData) == 0) knitr::knit_exit()
+
+```
+
+
+\newpage
+
+```{r}
+
+
+ggplot(clipData, aes(y=prop, x=originalSoftClip, fill=LTR)) +
+  geom_bar(stat = "identity") +
+  labs(title="Distribution of clipping points across reads",
+       x="Position on read",
+       y="Number of reads") +
+  scale_x_continuous(breaks=seq(minX, maxX)) +
+  theme(
+    legend.position = "none"
+  ) +
+  facet_grid(id~.)
+
+orderedLTR <- clipData %>%
+  group_by(LTR, originalSoftClip) %>%
+  summarize(count=n()) %>%
+  group_by(LTR) %>%
+  top_n(1, count) %>%
+  rowwise() %>%
+  mutate(displayLTR=substr(LTR, minX - config[["Primer_Length"]], max(nchar(LTR)))) %>%
+  select(LTR, displayLTR) %>%
+  left_join(candidateSummary %>% select(LTR, id), by="LTR") %>%
+  arrange(id) %>%
+  distinct()
+
+# posChar <- paste0("1    6   10",
+#                   paste0("   ",seq(15,ceiling(maxX/5)*5, 5), collapse = ""))
+# orderedLTRdf <- data.frame(x=cell_spec(c(posChar, orderedLTR, posChar), monospace = TRUE, format = "latex"))
+
+dnaplotr::plotDNA(orderedLTR$displayLTR,
+                  xStart = minX)
+
+```
+
+```{r}
+knitr::knit_exit()
+```
+
+\newpage
+
+# Summary Statistics for raw FASTQ file
+
+```{r}
+
+summaryStats %>%
+  gather("Variable", "Value") %>%
+  kableExtra::kable(col.names = NULL)
+
+```
+
+### Explanation of terms
+
+Total: Number of reads
+
+Distinct: Number of distinct sequences
+
+Max: Number of copies of most abundant sequence
+
+TotalLinker: Number of reads containing R1 linker sequence
+
+DisctinctLinker: Number of distinct sequences containing R1 linker sequence
+
+MaxLinker: Number of copies of most abundant sequence containing R1 linker sequence
+
+TotalHuman: Number of reads mapping to human genome
+
+DisctinctHuman: Number of distinct sequences mapping to human genome
+
+MaxHuman: Number of copies of most abundant sequence mapping to human genome
+
+\newpage
+
+# Key metrics
+
+```{r fig.height=1.5}
+
+plotStatInRange <- function(stat, name, low, high, min, max, log = FALSE) {
+  stat = round(stat, 4)
+  idealMidpoint <- if_else(log, 10^((log10(low) + log10(high))/2), (low + high)/2)
+  plot <- data.frame(stat=stat, low=low, high=high) %>%
+    ggplot() +
+    geom_segment(aes(x=min, xend=min, y=-0.1, yend=0.1)) +
+    geom_segment(aes(x=max, xend=max, y=-0.1, yend=0.1)) +
+    geom_segment(aes(x=min, xend=max, y=0, yend=0)) +
+    geom_segment(aes(x=low, xend=high, y=0, yend=0, size=5), color="green") +
+    geom_point(aes(x=stat, y=0)) +
+    geom_text(aes(label=stat, x=stat, y=1.5)) +
+    geom_text(aes(label="Ideal range", x=idealMidpoint, y=-1.5)) +
+    xlim(min, max) + ylim(-2,2) +
+    xlab("") + ylab("") +
+    ggtitle(name) +
+    theme(
+      legend.position = "none",
+      panel.background = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_text(angle=0)
+    )
+  if(log) plot <- plot + scale_x_log10(labels = scales::trans_format("log10", scales::math_format(10^.x)))
+  return(plot)
+}
+
+print(plotStatInRange(summaryStats$Total, "Total Reads", 5e4, 1e8, 1, 1e10, log = TRUE))
+cat("  \n")
+print(plotStatInRange(summaryStats$Max / summaryStats$Total, "Max Read Proportion", 0.01, 0.2, 0, 1))
+
+
+```
+
+\newpage
+
+```{r}
+if(any(seqsDf$human)) {
+  ggplot(mappingLengthDistribution, aes(x=matchLength, y=count)) +
+    geom_histogram(stat="identity", binwidth = 5) +
+    labs(title="Distribution of sequence lengths mapping to human genome",
+         x="Length of sequence match",
+         y="Number of reads")
+}
+```
+\newpage
+
+# Visualization of raw FASTQ reads
+
+Random sample of `r min(1000, sum(seqsDf$count))` reads, arranged by nucleotide sequence:
+
+```{r}
+
+dnaplotr::plotDNA(seqsDf %>%
+                    sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
+                    arrange(seq) %>%
+                    pull(seq))
+
+```
+
+Random sample of `r min(1000, nrow(seqsDf))` distinct reads (i.e. after removing duplicates), arranged by nucleotide sequence:
+
+```{r}
+
+
+dnaplotr::plotDNA(seqsDf %>%
+                    sample_n(min(1000, n()), replace = FALSE) %>%
+                    arrange(seq) %>%
+                    pull(seq))
+
+```
+
+\newpage
+
+# Visualization of raw FASTQ reads with R1 linker sequences
+
+```{r}
+
+if(any(seqsDf$hasLinker) & any(!seqsDf$hasLinker)) {
+  cat(paste0("  \nRandom sample of ", min(1000, sum(seqsDf %>% filter(hasLinker) %>% pull(count))), " reads containing R1 linker sequence, arranged by nucleotide sequence:  \n"))
+  dnaplotr::plotDNA(seqsDf %>%
+                      filter(hasLinker) %>%
+                      sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
+                      arrange(seq) %>%
+                      pull(seq))
+    cat(paste0("  \nRandom sample of ", min(1000, sum(seqsDf %>% filter(!hasLinker) %>% pull(count))), " reads that do NOT contain R1 linker sequence, arranged by nucleotide sequence:  \n"))
+  dnaplotr::plotDNA(seqsDf %>%
+                      filter(!hasLinker) %>%
+                      sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
+                      arrange(seq) %>%
+                      pull(seq))
+} else {
+  cat("No reads contained R1 linker sequences (or no R1 linker sequence was provided).")
+}
+
+```
+
+\newpage
+
+```{r}
+
+if(is.null(candidateSummary)) {
+  cat(paste0("No primer LTR pairs appeared in more than ", config[["minProportion"]], " of total reads."))
+  knitr::knit_exit()
+}
+
+```
+
+# Analysis of common primer-LTR pairs
+
+A total of `r nrow(candidates)` potential primer-LTR pairs were identified.
+
+This table shows how the reads captured by each primer-LTR pair compare to each other and to the raw FASTQ file.
+
+
+```{r}
+candidateSummary %>%
+  filter(id > 0) %>%
+  select(primer, LTR, expectedLTR, id) %>%
+  kableExtra::kable(longtable = TRUE) %>%
+  kableExtra::kable_styling(font_size = 7, bootstrap_options = c("striped", "condensed"))
+
+candidateSummary %>%
+  select(-primer, -LTR, -expectedLTR) %>%
+  gather("Variable", "Value", -"id") %>%
+  spread(id, Value) %>%
+  rename(Total="0")
+
+```
+
+```{r fig.height=1.5}
+
+expectedLTRproportion <-
+  (candidateSummary %>% filter(expectedLTR=="TRUE") %>% summarize(Total=sum(Total)) %>% pull(Total)) /
+  (summaryStats$Total)
+
+print(plotStatInRange(expectedLTRproportion, "% reads with expected LTR", 0.4, 0.9, 0, 1))
+
+```
+\newpage
+
+# Visualization of FASTQ reads, filtered for common primer & LTR
+
+Random sample of `r min(1000, sum(segmentedSeqsDf$count))` reads, filtered for common primer & LTR and with primer & LTR sequences trimmed, arranged by nucleotide sequence:
+
+```{r}
+
+dnaplotr::plotDNA(
+  segmentedSeqsDf %>%
+    sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
+    mutate(maxPrimerLength=max(nchar(primer)),
+           maxLTRlength=max(nchar(LTR)),
+           maxMatchLength=max(matchLength),
+           maxRemainderLength=max(nchar(remainder))) %>%
+    rowwise() %>%
+    mutate(displaySeq=create_display_seq(primer, LTR, matchSeq, remainder,
+                                         maxPrimerLength, maxLTRlength,
+                                         maxMatchLength, maxRemainderLength)) %>%
+    arrange(matchLength, displaySeq) %>%
+    pull(displaySeq))
+
+
+```
+
+Random sample of `r min(1000, nrow(seqsDf))` distinct reads (i.e. after removing duplicates), filtered for common rimer & LTR and with primer & LTR sequences trimmed, arranged by nucleotide sequence:
+
+```{r}
+
+
+dnaplotr::plotDNA(
+  segmentedSeqsDf %>%
+    sample_n(min(1000, n()), replace = FALSE) %>%
+    mutate(maxPrimerLength=max(nchar(primer)),
+           maxLTRlength=max(nchar(LTR)),
+           maxMatchLength=max(matchLength),
+           maxRemainderLength=max(nchar(remainder))) %>%
+    rowwise() %>%
+    mutate(displaySeq=create_display_seq(primer, LTR, matchSeq, remainder,
+                                         maxPrimerLength, maxLTRlength,
+                                         maxMatchLength, maxRemainderLength)) %>%
+    arrange(matchLength, displaySeq) %>%
+    pull(displaySeq))
+
+```
+
+```{r}
+if(!config[["Map_To_LANL"]]) {
+  knitr::knit_exit()
+}
+```
+
+# Analysis of FASTQ reads mapped to LTR regions of HIV genomes in the Los Alamos National Laboratory database
+
+`r nrow(candidates %>% filter(LANL))` candidates have an LTR sequence that mapped to an LTR region of at least one genome in the Los Alamos National Laboratories HIV database.
