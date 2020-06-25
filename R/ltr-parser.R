@@ -4,7 +4,7 @@ options(stringsAsFactors = FALSE,
         knitr.table.format = "latex",
         tinytex.clean = TRUE)
 
-source("/home/kevin/dev/ltrparser/R/misc.R")
+source("misc.R")
 
 ## Not run:
 #library(dnaplotr)
