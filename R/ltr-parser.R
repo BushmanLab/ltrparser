@@ -9,7 +9,7 @@ source("misc.R")
 ## Not run:
 #library(dnaplotr)
 #libsToLoad <- c("dplyr", "tidyr", "argparse", "ShortRead", "dnar", "stringdist", "rmarkdown")
-libsToLoad <- c("dplyr", "tidyr", "ShortRead", "dnar", "stringdist", "rmarkdown", "ggplot2")
+libsToLoad <- c("dplyr", "tidyr", "ShortRead", "dnar", "stringdist", "rmarkdown", "ggplot2", "msa")
 nullObj <- lapply(libsToLoad, get_package, silent = TRUE)
 
 
@@ -135,17 +135,6 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
   
   write.csv(candidates, outputCsv, quote = FALSE, row.names = FALSE)
   
-  #segmentedSeqsDf <- update_seqs(seqsDf, candidates)
-  
-  #filteredSeqsSummary <- segmentedSeqsDf %>%
-  #  group_by(primer, LTR, LANL) %>%
-  #  summarize(Distinct=n(), Total=sum(count), TotalHuman=sum(count[human]))
-  
-  # Update if we want to look at specific LANL sequences
-  #ltrFasta <- readFasta(config[["LTR_Database"]])
-  #ltrDatabase <- as.character(sread(ltrFasta))
-  #names(ltrDatabase) <- as.character(ShortRead::id(ltrFasta))
-  #get_closest_ltr_name()
   print("End of script, calling script to generate PDF.")
   render_output(config[["RMD_Script"]],
                 outputPdf,
@@ -176,8 +165,10 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
   tmppdf = gsub("R2.pdf", "R2.tmp.pdf", outputPdf)
   msaPrettyPrint(MSA, output = "tex", file = msatex, verbose = FALSE, askForOverwrite = FALSE,
                  paperWidth = 8.5, paperHeight = 11)
+  wd <- getwd()
   setwd(dirname(outputPdf))
   tools::texi2pdf(msatex, clean = TRUE)
+  setwd(wd)
   
   pdftools::pdf_combine(input = c(outputPdf, msapdf), output = tmppdf)
   system(paste0("cp ", tmppdf, " ", outputPdf))
