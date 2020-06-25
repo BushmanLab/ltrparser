@@ -7,4 +7,7 @@ You will need to set "Host" index for all samples, but only set "Viral" index if
 
 # Running
 From the project directory, run:
-`Rscript R/test.R`
+
+`cd R/`
+
+`Rscript test.R`
