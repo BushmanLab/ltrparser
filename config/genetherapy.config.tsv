@@ -1,5 +1,3 @@
-Run_Name:"Gene Therapy Test 2"
-Processing_Path:/home/kevin/dev/ltrparser/testdata/
 Host_Genome_Bowtie_Index:/data/internal/common/genomes/hg38/bowtie2/hg38
 Host_Bowtie_Options:"--local -k 1"
 Viral_Genome_Bowtie_Index:/home/kevin/dev/ltrparser/data/lanl.ltr
