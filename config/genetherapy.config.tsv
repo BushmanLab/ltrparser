@@ -1,7 +1,5 @@
 Host_Genome_Bowtie_Index:/data/internal/common/genomes/hg38/bowtie2/hg38
 Host_Bowtie_Options:"--local -k 1"
-Viral_Genome_Bowtie_Index:/home/kevin/dev/ltrparser/data/lanl.ltr
-Viral_Bowtie_Options:"--local -k 1"
 Primer_Length:7
 Min_LTR_Length:5
 Max_LTR_Length:10
