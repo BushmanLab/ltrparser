@@ -93,7 +93,7 @@ summarize_seqs <- function(seqsDf) {
   return(summaryStats)
 }
 
-identify_candidates <- function(bowtieResultDf, primerLength, minLTRlength, maxLTRlength) {
+identify_candidates_from_bowtie <- function(bowtieResultDf, primerLength, minLTRlength, maxLTRlength) {
   bowtieResultDf %>%
     group_by(seq, cigar, initialSoftClip) %>%
     summarize(count=n()) %>%
@@ -108,6 +108,18 @@ identify_candidates <- function(bowtieResultDf, primerLength, minLTRlength, maxL
     as.data.frame()
 }
 
+identify_candidates_from_raw_reads <- function(seqsDf, primerLength, minLTRlength, maxLTRlength) {
+  seqsDf %>%
+    filter(nchar(seq) >= primerLength + minLTRlength) %>%
+    mutate(truncatedSeq=substr(seq, 1, maxLTRlength)) %>%
+    group_by(truncatedSeq) %>%
+    summarize(count=sum(count)) %>%
+    ungroup() %>% as.data.frame() %>%
+    mutate(primer=substr(truncatedSeq, 1, primerLength),
+           LTR=substr(truncatedSeq, primerLength + 1, primerLength + maxLTRlength)) %>%
+    filter(count >= sum(count) / 20) %>%
+    select(primer, LTR, count)
+}
 
 adjust_candidates <- function(candidates, minLTRlength, maxLTRlength, terminalSeq) {
   if(is.null(candidates)) return(NULL)
@@ -153,18 +165,20 @@ filter_candidates <- function(candidates, minCount = 10, minProportion = 0.01) {
            head(10))
 }
 
-preliminary_candidates <- function(hostBowtieResultDf, primerLength, minLTRlength, maxLTRlength, terminalSeq) {
+preliminary_candidates <- function(seqsDf, hostBowtieResultDf, primerLength, minLTRlength, maxLTRlength, terminalSeq) {
   # primerLength <- config[["Primer_Length"]]
   # minLTRlength <- config[["Min_LTR_Length"]]
   # maxLTRlength <- config[["Max_LTR_Length"]]
   # terminalSeq <- config[["Terminal_Seq"]]
-  candidates <- identify_candidates(hostBowtieResultDf, primerLength, minLTRlength, maxLTRlength)
+  bowtieCandidates <- identify_candidates_from_bowtie(hostBowtieResultDf, primerLength, minLTRlength, maxLTRlength)
+  rawCandidates <- identify_candidates_from_raw_reads(seqsDf, primerLength, minLTRlength, maxLTRlength)
+  candidates <- rbind(bowtieCandidates, rawCandidates)
   candidates <- adjust_candidates(candidates, minLTRlength, maxLTRlength, terminalSeq)
   candidates <- filter_candidates(candidates)
   return(candidates)
 }
 
-recover_seqs <- function(seqsDf, candidates, expectedLTR, LTRmaxDist = 2, terminalSeq) {
+recover_seqs <- function(seqsDf, candidates, expectedLTR, LTRmaxDist = 2, expectedTerminalSeq) {
   process_pair <- function(pair) {
     primer <- str_split(pair, ":")[[1]][1]
     LTR <- str_split(pair, ":")[[1]][2]
@@ -172,16 +186,19 @@ recover_seqs <- function(seqsDf, candidates, expectedLTR, LTRmaxDist = 2, termin
     LTRlength <- nchar(LTR)
     seqsDf %>%
       filter(substr(seq, 1, primerLength)==primer) %>%
-      mutate(LTRdist=stringdist(substr(seq, primerLength + 1, primerLength + LTRlength), LTR)) %>%
-      filter(LTRdist <= LTRmaxDist & substr(seq,
-                                            primerLength + LTRlength - nchar(terminalSeq) + 1,
-                                            primerLength + LTRlength) == terminalSeq) %>%
+      mutate(LTRdist=stringdist(substr(seq, primerLength + 1, primerLength + LTRlength), LTR),
+             terminalSeq=substr(seq,
+                                primerLength + LTRlength - nchar(expectedTerminalSeq) + 1,
+                                primerLength + LTRlength)) %>%
+      filter(LTRdist <= LTRmaxDist & terminalSeq == expectedTerminalSeq) %>%
       mutate(primer=primer,
              LTR=LTR,
              expectedLTR=LTR==expectedLTR) %>%
       as.data.frame()
   }
-  recoveredSeqsDf <- do.call(rbind, lapply(unite(candidates, pair, c("primer","LTR"), sep = ":") %>% pull(pair), process_pair))
+  recoveredSeqsDf <- do.call(rbind, lapply(unite(candidates, pair, c("primer","LTR"), sep = ":") %>%
+                                             pull(pair),
+                                           process_pair))
 }
 
 segment_seqs <- function(recoveredSeqsDf, hostBowtieResultDf, expectedLinkerRegexVector) {

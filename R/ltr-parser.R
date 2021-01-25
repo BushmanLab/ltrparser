@@ -4,7 +4,7 @@ options(stringsAsFactors = FALSE,
         knitr.table.format = "latex",
         tinytex.clean = TRUE)
 
-source("misc.R")
+source("/home/kevin/dev/ltrparser/R/misc.R")
 
 ## Not run:
 #library(dnaplotr)
@@ -31,9 +31,10 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
   expectedLTR <- paste0(expectedLTR, config[["Terminal_Seq"]], collapse = "")
   
   fastq <- ShortRead::readFastq(inputFastq)
-  fastq.trimmed <- trimTailw(fastq, 2, '<', 5)
-
-  seqsDf <- data.frame(seq=as.character(sread(fastq.trimmed))) %>%
+  
+  #fastq.trimmed <- trimTailw(fastq, 2, '<', 5)
+  #seqsDf <- data.frame(seq=as.character(sread(fastq.trimmed))) %>%
+  seqsDf <- data.frame(seq=as.character(sread(fastq))) %>%
     group_by(seq) %>%
     summarize(count=n()) %>%
     as.data.frame()
@@ -42,7 +43,6 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
     print(paste0("No sequencing reads found for file: ", inputFastq))
     return(0)
   }
-  
   
   hostBowtieResult <-
     system(paste0("bowtie2 --quiet -p 16 ", config[["Host_Bowtie_Options"]],
@@ -69,7 +69,8 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
   }
   
   hostBowtieResultDf <- parse_bowtie_results(hostBowtieResult)
-  candidates <- preliminary_candidates(hostBowtieResultDf,
+  candidates <- preliminary_candidates(seqsDf,
+                                       hostBowtieResultDf,
                                        config[["Primer_Length"]],
                                        config[["Min_LTR_Length"]],
                                        config[["Max_LTR_Length"]],
@@ -95,6 +96,19 @@ parse_ltrs <- function(inputFastq, outputCsv, configFile, expectedLTR = "", expe
   }
   
   recoveredSeqsDf <- recover_seqs(seqsDf, candidates, expectedLTR, config[["LTR_Max_Dist"]], config[["Terminal_Seq"]])
+  
+  if(nrow(recoveredSeqsDf)==0) {
+    print(paste0("Common primer-LTR pairs somehow not actually common: ", inputFastq))
+    summaryStats <- summarize_seqs(seqsDf)
+    render_output(config[["RMD_Script"]],
+                  outputPdf,
+                  params = list(inputFastq=inputFastq,
+                                configFile=configFile,
+                                seqsDf=seqsDf,
+                                summaryStats=summaryStats,
+                                mappingLengthDistribution=mappingLengthDistribution))
+    return(0)
+  }
   
   segmentedSeqsDf <- segment_seqs(recoveredSeqsDf, hostBowtieResultDf, expectedLinkerRegexVector)
   

@@ -110,7 +110,32 @@ if(!is.null(candidateSummary)) {
 
 \newpage
 
-# Visualization of reads
+# Visualization of raw reads
+
+```{r figure.height=8}
+
+dnaplotr::plotDNA(sort(seqsDf %>% sample_n(min(1000, n()), weight = count) %>% pull(seq)))
+
+primerBit <- seqsDf %>%
+  mutate(primerBit=substr(seq, 1, config[["Primer_Length"]])) %>%
+  group_by(primerBit) %>%
+  summarize(count=sum(count)) %>%
+  arrange(-count) %>%
+  ungroup() %>% as.data.frame() %>%
+  head(1) %>%
+  pull(primerBit)
+  
+commonPrimerSeqsDf <- seqsDf %>%
+  filter(substr(seq,1,config[["Primer_Length"]])==primerBit)
+  
+dnaplotr::plotDNA(sort(commonPrimerSeqsDf %>% sample_n(min(1000, n()), weight = count) %>% pull(seq)))
+
+```
+
+
+\newpage
+
+# Visualization of filtered / processed reads
 
 Reads are sectioned off into sections separated by white (nucleotide color legend is below the plot).
 
@@ -120,48 +145,55 @@ Primer /// LTR /// CA /// (unmatched) /// human-matching /// linker-matching ///
 if(!is.null(candidateSummary)) {
   
   seqsToDisplay <- segmentedSeqsDf %>%
-      sample_n(min(1000, n()), replace = FALSE) %>%
-      mutate(maxPrimerLength=max(nchar(primer)),
-             maxLTRlength=max(nchar(LTR)),
-             maxRemainderU5Length=max(nchar(remainder_u5)),
-             maxMatchLength=max(nchar(matchSeq)),
-             maxLinkerLength=max(nchar(linkerSeq)),
-             maxRemainderU3Length=max(nchar(remainder_u3))) %>%
-      rowwise() %>%
-      mutate(displaySeq=create_display_seq(primer, LTRsegment, remainder_u5, matchSeq, linkerSeq, remainder_u3,
-                                           maxPrimerLength, maxLTRlength, maxRemainderU5Length,
-                                           maxMatchLength, maxLinkerLength, maxRemainderU3Length)) %>%
-      arrange(matchSeq, linkerSeq, remainder_u3)
+    sample_n(min(1000, n()), replace = FALSE) %>%
+    mutate(maxPrimerLength=max(nchar(primer)),
+           maxLTRlength=max(nchar(LTR)),
+           maxRemainderU5Length=max(nchar(remainder_u5)),
+           maxMatchLength=max(nchar(matchSeq)),
+           maxLinkerLength=max(nchar(linkerSeq)),
+           maxRemainderU3Length=max(nchar(remainder_u3))) %>%
+    rowwise() %>%
+    mutate(displaySeq=create_display_seq(primer, LTRsegment, remainder_u5, matchSeq, linkerSeq, remainder_u3,
+                                         maxPrimerLength, maxLTRlength, maxRemainderU5Length,
+                                         maxMatchLength, maxLinkerLength, maxRemainderU3Length)) %>%
+    arrange(matchSeq, linkerSeq, remainder_u3) %>%
+    ungroup()
   dnaplotr::plotDNA(seqsToDisplay %>% pull(displaySeq))
   #dnaplotr::plotDNA(revComp(expectedLinker))
   dnaplotr::plotDNA(seqsToDisplay %>% arrange(seq) %>% pull(seq))
-
+  
+  charRange <- candidateSummary %>%
+    filter(LTR != "") %>%
+    mutate(charLength=nchar(primer) + nchar(LTR)) %>%
+    pull(charLength)
+    
+  maxX <- max(charRange) + 5
+  minX <- min(charRange) - 5
+  
+  clipData <- segmentedSeqsDf %>%
+    filter(LTR %in% candidateSummary$LTR) %>%
+    filter(initialSoftClip <= maxX & initialSoftClip >= minX) %>%
+    #filter(originalSoftClip <= maxX & originalSoftClip >= minX) %>%
+    group_by(LTR, initialSoftClip) %>%
+    #group_by(LTR, originalSoftClip) %>%
+    summarize(count=n()) %>%
+    group_by(LTR) %>%
+    left_join(candidateSummary %>% select(LTR, id), by="LTR") %>%
+    mutate(prop=count/sum(count))
+  clipData$id <- factor(clipData$id, levels = sort(unique(clipData$id), decreasing = TRUE))
+  
+  if(nrow(clipData) == 0) knitr::knit_exit()
 
 } else {
   dnaplotr::plotDNA(seqsDf %>%
                     sample_n(min(1000, sum(count)), replace = TRUE, weight = count) %>%
                     arrange(seq) %>%
                     pull(seq))
+  
+  knitr::knit_exit()
 }
 
-charRange <- candidateSummary %>%
-  filter(LTR != "") %>%
-  mutate(charLength=nchar(primer) + nchar(LTR)) %>%
-  pull(charLength)
-maxX <- max(charRange) + 5
-minX <- min(charRange) - 5
 
-clipData <- segmentedSeqsDf %>%
-  filter(originalSoftClip <= maxX & originalSoftClip >= minX) %>%
-  filter(LTR %in% candidateSummary$LTR) %>%
-  group_by(LTR, originalSoftClip) %>%
-  summarize(count=n()) %>%
-  group_by(LTR) %>%
-  left_join(candidateSummary %>% select(LTR, id), by="LTR") %>%
-  mutate(prop=count/sum(count))
-clipData$id <- factor(clipData$id, levels = sort(unique(clipData$id), decreasing = TRUE))
-
-if(nrow(clipData) == 0) knitr::knit_exit()
 
 ```
 
@@ -171,7 +203,8 @@ if(nrow(clipData) == 0) knitr::knit_exit()
 ```{r}
 
 
-ggplot(clipData, aes(y=prop, x=originalSoftClip, fill=LTR)) +
+#ggplot(clipData, aes(y=prop, x=originalSoftClip, fill=LTR)) +
+ggplot(clipData, aes(y=prop, x=initialSoftClip, fill=LTR)) +
   geom_bar(stat = "identity") +
   labs(title="Distribution of clipping points across reads",
        x="Position on read",
@@ -183,7 +216,8 @@ ggplot(clipData, aes(y=prop, x=originalSoftClip, fill=LTR)) +
   facet_grid(id~.)
 
 orderedLTR <- clipData %>%
-  group_by(LTR, originalSoftClip) %>%
+  #group_by(LTR, originalSoftClip) %>%
+  group_by(LTR, initialSoftClip) %>%
   summarize(count=n()) %>%
   group_by(LTR) %>%
   top_n(1, count) %>%
